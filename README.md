@@ -1,6 +1,6 @@
 # Reprodutor Media Play
 
-Aplicação de reprodução e gerenciamento de músicas desenvolvida em Python com Streamlit, inspirada no clássico Windows Media Player.
+Aplicação de reprodução e gerenciamento de músicas desenvolvida em Python com Streamlit.
 
 O sistema permite importar músicas, organizar uma biblioteca, criar playlists, visualizar capas de álbuns e controlar a reprodução de áudio.
 
@@ -17,6 +17,7 @@ Site: https://media-play-desktop-fxudwyu8pcp2zsjafpha6n.streamlit.app/
 
 - **Python** — linguagem principal
 - **Streamlit** — interface da aplicação
+- **Pygame** — reprodução e controle de áudio
 - **Mutagen** — leitura e edição de metadados ID3 dos arquivos MP3
 - **Pillow** — processamento das capas dos álbuns
 - **JSON** — armazenamento local da biblioteca e das playlists

@@ -31,13 +31,13 @@ def image_to_base64(image_path: str) -> str:
 
 
 def render_header():
-    """Renderiza a barra de cabecalho no estilo Windows Media Player."""
+    """Renderiza a barra de cabecalho do Media Player."""
     st.markdown(
         """
         <div class="wmp-header-banner">
             <div class="wmp-header-title">
                 <div class="wmp-header-logo"></div>
-                Windows Media Player
+                Media Player
             </div>
             <div>
                 <span class="wmp-badge">EDITION 2026</span>

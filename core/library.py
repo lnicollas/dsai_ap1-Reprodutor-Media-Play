@@ -230,6 +230,33 @@ def open_folder_picker_dialog() -> str:
         return ""
 
 
+def save_custom_cover(track_id: str, uploaded_file) -> Optional[str]:
+    """Salva a imagem enviada pelo usuario (PNG, JPG, WEBP) como capa da musica."""
+    if not uploaded_file:
+        return None
+    ensure_storage_dirs()
+    cover_filename = f"cover_{track_id}.png"
+    cover_filepath = os.path.join(COVERS_DIR, cover_filename)
+
+    try:
+        image_bytes = uploaded_file.getvalue()
+        img = Image.open(BytesIO(image_bytes))
+        img = img.convert("RGB")
+        img.thumbnail((500, 500))
+        img.save(cover_filepath, format="PNG")
+
+        library = load_library()
+        for track in library:
+            if track["id"] == track_id:
+                track["cover_path"] = cover_filepath
+                break
+        save_library(library)
+        return cover_filepath
+    except Exception as e:
+        print(f"Erro ao salvar capa personalizada: {e}")
+        return None
+
+
 def update_track_metadata(track_id: str, new_data: Dict[str, str]) -> bool:
     """
     Atualiza os metadados de uma faixa na biblioteca e opcionalmente na tag ID3 do arquivo.

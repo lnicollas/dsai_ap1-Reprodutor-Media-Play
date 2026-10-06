@@ -3,7 +3,7 @@ import streamlit as st
 
 # Configuração inicial da página Streamlit
 st.set_page_config(
-    page_title="Windows Media Player Desktop",
+    page_title="Media Player Desktop",
     page_icon="🎵",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -16,6 +16,7 @@ from core.library import (
     update_track_metadata,
     import_uploaded_files,
     open_folder_picker_dialog,
+    save_custom_cover,
 )
 from core.playlist import (
     load_playlists,
@@ -97,7 +98,7 @@ with st.sidebar:
     st.markdown(
         """
         <div style='text-align: center; padding: 10px 0;'>
-            <h2 style='color: #00e5ff; margin-bottom: 0;'>🎵 WMP Classic</h2>
+            <h2 style='color: #00e5ff; margin-bottom: 0;'>🎵 Media Player</h2>
             <p style='color: #8ab4f8; font-size: 0.85rem;'>Player de Áudio Desktop</p>
         </div>
         """,
@@ -133,6 +134,27 @@ if menu == "🎧 Tocando Agora":
     with col_left:
         current_tr = player.get_current_track()
         render_now_playing_panel(current_tr, is_playing=player.is_playing and not player.is_paused)
+
+        if current_tr:
+            with st.popover("🖼️ Alterar Capa desta Música", use_container_width=True):
+                st.markdown(f"**Nova Capa para:** `{current_tr.get('title')}`")
+                uploaded_cover = st.file_uploader(
+                    "Selecione uma imagem de capa:",
+                    type=["png", "jpg", "jpeg", "webp"],
+                    key="now_playing_cover_uploader",
+                )
+                if st.button("💾 Salvar Nova Capa", key="save_now_playing_cover", use_container_width=True):
+                    if uploaded_cover:
+                        save_custom_cover(current_tr["id"], uploaded_cover)
+                        st.session_state.library = load_library()
+                        # Atualiza a faixa atual na fila
+                        for item in player.queue:
+                            if item["id"] == current_tr["id"]:
+                                item["cover_path"] = os.path.join("storage", "covers", f"cover_{current_tr['id']}.png")
+                        st.toast("Capa atualizada com sucesso! 🎨")
+                        st.rerun()
+                    else:
+                        st.warning("Selecione uma imagem primeiro.")
 
     with col_right:
         st.markdown("<div class='wmp-card'>", unsafe_allow_html=True)
@@ -214,21 +236,27 @@ elif menu == "📚 Biblioteca de Mídias":
             with c_pl:
                 playlists = st.session_state.playlists
                 if playlists:
-                    pl_names = {p["name"]: p["id"] for p in playlists}
-                    selected_pl_name = st.selectbox(
+                    pl_dict = {p["id"]: p for p in playlists}
+                    selected_pl_id = st.selectbox(
                         "Playlist",
-                        options=list(pl_names.keys()),
+                        options=list(pl_dict.keys()),
+                        format_func=lambda pid: pl_dict[pid]["name"],
                         key=f"pl_select_{track['id']}",
                         label_visibility="collapsed",
                     )
                     if st.button("+ Playlist", key=f"add_pl_{track['id']}"):
-                        add_track_to_playlist(pl_names[selected_pl_name], track["id"])
+                        add_track_to_playlist(selected_pl_id, track["id"])
                         st.session_state.playlists = load_playlists()
-                        st.toast(f"Adicionado à {selected_pl_name}!")
+                        st.toast(f"Adicionado à {pl_dict[selected_pl_id]['name']}!")
 
             with c_edit:
                 with st.popover("✏️ Editar"):
-                    st.markdown(f"**Editar Metadados: {track['title']}**")
+                    st.markdown(f"**Editar Metadados e Capa: {track['title']}**")
+                    uploaded_c = st.file_uploader(
+                        "🖼️ Alterar Capa:",
+                        type=["png", "jpg", "jpeg", "webp"],
+                        key=f"edit_cover_{track['id']}",
+                    )
                     new_t = st.text_input("Título", value=track["title"], key=f"edit_t_{track['id']}")
                     new_a = st.text_input("Artista", value=track["artist"], key=f"edit_a_{track['id']}")
                     new_al = st.text_input("Álbum", value=track["album"], key=f"edit_al_{track['id']}")
@@ -236,12 +264,14 @@ elif menu == "📚 Biblioteca de Mídias":
                     new_y = st.text_input("Ano", value=track["year"], key=f"edit_y_{track['id']}")
 
                     if st.button("Salvar Alterações", key=f"save_edit_{track['id']}"):
+                        if uploaded_c:
+                            save_custom_cover(track["id"], uploaded_c)
                         update_track_metadata(
                             track["id"],
                             {"title": new_t, "artist": new_a, "album": new_al, "genre": new_g, "year": new_y},
                         )
                         st.session_state.library = load_library()
-                        st.success("Metadados atualizados!")
+                        st.toast("Metadados e capa atualizados com sucesso! 🎨")
                         st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -253,17 +283,24 @@ elif menu == "🎵 Playlists":
     st.markdown("<div class='wmp-card'>", unsafe_allow_html=True)
     st.subheader("🎵 Gerenciador de Playlists")
 
-    # Criar nova playlist
-    c_p1, c_p2 = st.columns([3, 1])
-    with c_p1:
-        new_pl_name = st.text_input("Nome da Nova Playlist:", placeholder="Ex: Minhas Favoritas", label_visibility="collapsed")
-    with c_p2:
-        if st.button("➕ Criar Playlist", use_container_width=True):
-            if new_pl_name:
-                create_playlist(new_pl_name)
-                st.session_state.playlists = load_playlists()
-                st.success(f"Playlist '{new_pl_name}' criada!")
-                st.rerun()
+    # Criar nova playlist com st.form (atômico e confiável no Streamlit Cloud)
+    with st.form("create_playlist_form", clear_on_submit=True):
+        c_p1, c_p2 = st.columns([3, 1])
+        with c_p1:
+            new_pl_name = st.text_input(
+                "Nome da Nova Playlist:",
+                placeholder="Ex: Minhas Favoritas",
+                label_visibility="collapsed",
+            )
+        with c_p2:
+            submitted = st.form_submit_button("➕ Criar Playlist", use_container_width=True)
+
+        if submitted:
+            final_name = new_pl_name.strip() if new_pl_name and new_pl_name.strip() else "Nova Playlist"
+            created = create_playlist(final_name)
+            st.session_state.playlists = load_playlists()
+            st.toast(f"Playlist '{created['name']}' criada com sucesso! 🎉")
+            st.rerun()
 
     st.divider()
 
@@ -271,9 +308,13 @@ elif menu == "🎵 Playlists":
     if not playlists:
         st.info("Nenhuma playlist cadastrada. Crie uma acima para organizar suas faixas.")
     else:
-        pl_options = {p["name"]: p for p in playlists}
-        selected_pl_key = st.selectbox("Selecione a Playlist:", list(pl_options.keys()))
-        selected_pl = pl_options[selected_pl_key]
+        pl_dict = {p["id"]: p for p in playlists}
+        selected_pl_id = st.selectbox(
+            "Selecione a Playlist:",
+            options=list(pl_dict.keys()),
+            format_func=lambda pid: f"{pl_dict[pid]['name']} ({len(pl_dict[pid]['track_ids'])} faixas)",
+        )
+        selected_pl = pl_dict[selected_pl_id]
 
         st.markdown(f"### Playlist: **{selected_pl['name']}** ({len(selected_pl['track_ids'])} músicas)")
 
