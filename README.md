@@ -68,9 +68,9 @@ Para organizar o desenvolvimento assistido por IA, foi utilizado o **OpenSpec**,
 
 O projeto possui o registro dos prompts utilizados em `prompts.md` e as especificações do OpenSpec estão disponíveis na pasta `openspec/`.
 
-## 🧠 Modelo de IA
+## 🧠  IA
 
-O modelo de IA utilizado durante o desenvolvimento foi o **Gemini Flash**, através do agente Google Antigravity.
+A IA utilizada durante o desenvolvimento foi através do agente Google Antigravity.
 
 O modelo foi utilizado como apoio para:
 
