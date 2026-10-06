@@ -113,14 +113,44 @@ def parse_mp3_metadata(filepath: str) -> Dict[str, Any]:
     return metadata
 
 
+def resolve_filepath(filepath: str) -> str:
+    """Resolve o caminho do arquivo de audio de forma portavel entre OS e Streamlit Cloud."""
+    if not filepath:
+        return ""
+    if os.path.exists(filepath):
+        return filepath
+    filename = os.path.basename(filepath.replace("\\", "/"))
+    media_path = os.path.join(MEDIA_DIR, filename)
+    if os.path.exists(media_path):
+        return media_path
+    return filepath
+
+
+def resolve_coverpath(cover_path: str) -> str:
+    """Resolve o caminho da capa de forma portavel."""
+    if not cover_path:
+        return DEFAULT_COVER if os.path.exists(DEFAULT_COVER) else ""
+    if os.path.exists(cover_path):
+        return cover_path
+    filename = os.path.basename(cover_path.replace("\\", "/"))
+    rel_cover = os.path.join(COVERS_DIR, filename)
+    if os.path.exists(rel_cover):
+        return rel_cover
+    return DEFAULT_COVER if os.path.exists(DEFAULT_COVER) else ""
+
+
 def load_library() -> List[Dict[str, Any]]:
-    """Carrega a lista de faixas do arquivo JSON local."""
+    """Carrega a lista de faixas do arquivo JSON local com caminhos resolvidos."""
     ensure_storage_dirs()
     if not os.path.exists(LIBRARY_JSON):
         return []
     try:
         with open(LIBRARY_JSON, "r", encoding="utf-8") as f:
-            return json.load(f)
+            items = json.load(f)
+            for item in items:
+                item["filepath"] = resolve_filepath(item.get("filepath", ""))
+                item["cover_path"] = resolve_coverpath(item.get("cover_path", ""))
+            return items
     except Exception as e:
         print(f"Erro ao ler {LIBRARY_JSON}: {e}")
         return []

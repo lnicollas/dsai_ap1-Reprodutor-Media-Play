@@ -150,11 +150,16 @@ class AudioPlayer:
     # ------------------------------------------------------------------
 
     def play(self, track: Optional[Dict[str, Any]] = None, start_pos: float = 0.0) -> bool:
+        from core.library import resolve_filepath
+
         if track:
-            filepath = track["filepath"]
+            filepath = resolve_filepath(track.get("filepath", ""))
+            track["filepath"] = filepath
             found = False
             for idx, item in enumerate(self.queue):
-                if item["filepath"] == filepath:
+                item_path = resolve_filepath(item.get("filepath", ""))
+                item["filepath"] = item_path
+                if item_path == filepath:
                     self.current_index = idx
                     found = True
                     break
@@ -163,24 +168,29 @@ class AudioPlayer:
                 self.current_index = 0
 
         target = self.get_current_track()
-        if not target or not os.path.exists(target["filepath"]):
+        if not target:
             return False
 
-        result = self._send(
+        resolved_path = resolve_filepath(target.get("filepath", ""))
+        if not os.path.exists(resolved_path):
+            return False
+
+        target["filepath"] = resolved_path
+
+        # Tenta enviar para o Pygame local se o mixer estiver inicializado
+        self._send(
             "play",
-            filepath=target["filepath"],
+            filepath=resolved_path,
             volume=self.volume,
             start=start_pos,
         )
 
-        if result is not False:
-            self.is_playing = True
-            self.is_paused = False
-            self._play_start_time = time.time()
-            self._play_start_pos = start_pos
-            self._paused_at_pos = start_pos
-            return True
-        return False
+        self.is_playing = True
+        self.is_paused = False
+        self._play_start_time = time.time()
+        self._play_start_pos = start_pos
+        self._paused_at_pos = start_pos
+        return True
 
     def pause(self):
         """Pausa a reproducao — chama pygame na thread correta."""

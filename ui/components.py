@@ -4,6 +4,9 @@ import streamlit as st
 from typing import Optional, Dict, Any, Callable
 
 
+from core.library import resolve_filepath, resolve_coverpath
+
+
 def load_css(css_file: str):
     """Carrega o CSS customizado e injeta no Streamlit."""
     if os.path.exists(css_file):
@@ -13,16 +16,13 @@ def load_css(css_file: str):
 
 def image_to_base64(image_path: str) -> str:
     """Converte um arquivo de imagem local para string Base64."""
-    if not image_path or not os.path.exists(image_path):
-        fallback = os.path.join("storage", "covers", "default_cover.png")
-        if os.path.exists(fallback):
-            image_path = fallback
-        else:
-            return ""
+    resolved = resolve_coverpath(image_path)
+    if not resolved or not os.path.exists(resolved):
+        return ""
     try:
-        with open(image_path, "rb") as f:
+        with open(resolved, "rb") as f:
             encoded = base64.b64encode(f.read()).decode()
-            ext = os.path.splitext(image_path)[1].lower().replace(".", "")
+            ext = os.path.splitext(resolved)[1].lower().replace(".", "")
             if ext == "jpg":
                 ext = "jpeg"
             return f"data:image/{ext};base64,{encoded}"
@@ -132,7 +132,7 @@ def render_progress_bar():
 
 
 # ----------------------------------------------------------------------
-# Barra de controles (botoes + volume + seek manual)
+# Barra de controles (botoes + volume + seek manual + player HTML5 st.audio)
 # ----------------------------------------------------------------------
 
 def render_controls_bar(
@@ -147,11 +147,30 @@ def render_controls_bar(
     on_shuffle: Callable,
     on_repeat: Callable,
 ):
-    """Renderiza a barra flutuante de transporte e controles."""
+    """Renderiza a barra flutuante de transporte e controles com st.audio para o browser."""
     current_track = player.get_current_track()
     duration = current_track.get("duration", 0) if current_track else 0
 
     st.markdown("<div class='wmp-control-bar'>", unsafe_allow_html=True)
+
+    # --- Player HTML5 de Áudio nativo do Streamlit para o navegador / Community Cloud ---
+    if current_track:
+        filepath = resolve_filepath(current_track.get("filepath", ""))
+        if filepath and os.path.exists(filepath):
+            try:
+                with open(filepath, "rb") as f:
+                    audio_bytes = f.read()
+                st.audio(
+                    audio_bytes,
+                    format="audio/mp3",
+                    autoplay=(player.is_playing and not player.is_paused),
+                )
+            except Exception as e:
+                st.audio(
+                    filepath,
+                    format="audio/mp3",
+                    autoplay=(player.is_playing and not player.is_paused),
+                )
 
     # --- Barra de progresso animada ---
     render_progress_bar()
