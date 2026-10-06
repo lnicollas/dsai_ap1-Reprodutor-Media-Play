@@ -17,7 +17,6 @@ Site: https://media-play-desktop-fxudwyu8pcp2zsjafpha6n.streamlit.app/
 
 - **Python** — linguagem principal
 - **Streamlit** — interface da aplicação
-- **Pygame** — reprodução e controle de áudio
 - **Mutagen** — leitura e edição de metadados ID3 dos arquivos MP3
 - **Pillow** — processamento das capas dos álbuns
 - **JSON** — armazenamento local da biblioteca e das playlists
